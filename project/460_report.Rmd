@@ -1,0 +1,96 @@
+---
+title: 'NBA Late-Game Strategies: \n To Foul Or Not To Foul'
+author: 
+  - Amor Ai^[amorai@cmu.edu], Minnie Ren^[minyir@andrew.cmu.edu], Yifan Sun^[yifansun@andrew.cmu.edu]
+date: "April 29, 2024"
+header-includes:
+   - \usepackage[default]{sourcesanspro}
+   - \usepackage[T1]{fontenc}
+mainfont: SourceSansPro
+output: 
+  html_document:
+    css: style.css
+    theme: spacelab
+    highlight: tango
+    toc: true
+    toc_float: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(brms)
+
+# Load data
+nba_foul_data <- read_csv("project/nba_foul_data.csv")
+```
+
+------------------------------------------------------------------------
+
+# Introduction
+
+Decisions made during the final moments of a game often determine the outcome — a recurring theme present in almost all sports. In the National Basketball Association (NBA), this is especially salient, where many games are decided by the last possession, and a single decision can determine a win or a loss. It is evident that fouling significantly impacts the result of a basketball game, in more ways than one, but is especially important at the end of games. A controversial endgame strategy endorsed by many is to deliberately foul the opposing team when leading by 3 points near the end of the game. The rationale behind this tactic is to force the opponent to earn points from free throws, limiting them to a maximum of 2 and preventing a game-tying three-point shot attempt. This approach not only maintains the lead for the fouling team but also grants them possession with time remaining on the clock.
+
+Our project aims to explore the following questions: 
+
+1. Is fouling when up by 3 points late in an NBA game an effective strategy? 
+2. Can we predict the outcome of games based on this late-game fouling strategy? 
+
+To understand end-game strategies such as this one, enhance team performance, and ultimately improve game outcomes, we were interested in understanding how late-game fouls impact the result of an NBA game. We found that [add key findings]. This analysis aims to help coaches, players, and analysts make more informed decisions during late-game situations by providing data-driven insights into the effects of fouling strategies. Moreover, our work lays a foundation for further analysis and research into end-game strategies in basketball.
+
+------------------------------------------------------------------------
+
+# Data
+
+NBA play-by-play and box score data was scraped from the [hoopR](https://hoopr.sportsdataverse.org/) package for seasons from 2003 to 2023. The data was filtered to capture late-game scenarios, specifically regular season and postseason games where the game clock was within 24 seconds and the score difference was exactly 3 points in the fourth quarter or any overtimes. A binary variable, `foul`, was created to flag instances of teams fouling in these critical moments. The outcome of each game was determined, and an indicator variable `success` was added to denote whether the leading team ultimately won the game. Game-level statistics such as field goal percentage, three-point percentage, and free throw percentage served as a proxy for team strength. 
+
+The descriptions for the all of the key variables of interest are as follows:
+
+<div style="text-align: center;">
+
+| Variable | Description |
+|-------------|-------------|
+| `game_id` |	Unique game ID |
+| `season` | NBA season (year) |
+| `foul` |  Whether or not the leading team fouled (1 = yes)	|
+| `qtr` |	Game period (4 = 4th quarter, 5 = OT1, 6 = OT2, etc) |
+| `leading_team` | Team up by 3 points |
+| `winner` | Team that won the game |
+| `success` | Whether or not the leading team won the game (1 = yes) |
+| `home_team_id` | Unique home team identification number |
+| `away_team_id` | Unique away team identification number |
+| `leading_fgpct` | Field goal percentage of the leading team in the game |
+| `opponent_fgpct` | Field goal percentage of the opponent team in the game |
+| `leading_3pct` | Three-point percentage of the leading team in the game |
+| `opponent_3pct` | Three-point percentage of the opponent team in the game |
+| `leading_FTpct` | Free throw percentage of the leading team in the game |
+| `opponent_FTpct` | Free throw percentage of the opponent team in the game |
+| `clock_seconds` | Seconds left until the end of the period |
+
+</div>
+
+
+
+## Exploratory Data Analysis (EDA)
+
+
+
+
+------------------------------------------------------------------------
+
+# Methods
+
+
+
+------------------------------------------------------------------------
+
+# Results
+
+------------------------------------------------------------------------
+
+# Discussion
+
+
+
