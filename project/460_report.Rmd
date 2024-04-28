@@ -9,6 +9,7 @@ header-includes:
 mainfont: SourceSansPro
 output: 
   html_document:
+    fig_caption: true
     css: style.css
     theme: spacelab
     highlight: tango
@@ -38,7 +39,8 @@ Our project aims to explore the following questions:
 1. Is fouling when up by 3 points late in an NBA game an effective strategy? 
 2. Can we predict the outcome of games based on this late-game fouling strategy? 
 
-To understand end-game strategies such as this one, enhance team performance, and ultimately improve game outcomes, we were interested in understanding how late-game fouls impact the result of an NBA game. We found that [add key findings]. This analysis aims to help coaches, players, and analysts make more informed decisions during late-game situations by providing data-driven insights into the effects of fouling strategies. Moreover, our work lays a foundation for further analysis and research into end-game strategies in basketball.
+To understand end-game strategies such as this one, enhance team performance, and ultimately improve game outcomes, we were interested in understanding how late-game fouls impact the result of an NBA game. This analysis aims to help coaches, players, and analysts make more informed decisions during late-game situations by providing data-driven insights into the effects of fouling strategies. We found that fouling may not be a good strategy when the opponent has been shooting well at the free-throw line or from the field earlier in the game. However, in general, there is no clear answer as to whether or not teams should foul late in the game. Nevertheless, our work lays a foundation for further analysis and research into end-game strategies in basketball.
+
 
 ------------------------------------------------------------------------
 
@@ -71,10 +73,67 @@ The descriptions for the all of the key variables of interest are as follows:
 
 </div>
 
-
-
 ## Exploratory Data Analysis (EDA)
 
+Out of the 5428 games, only 306 games (~5.6% of the time) involved the leading team fouling when up by 3 points. After removing poor data, such as missing values (NA’s), our final dataset used for analysis comprised 5418 games.
+
+
+Figure 1 displays the frequency of fouls committed by leading teams during late-game situations (with 24 seconds left) across the past 21 seasons. This frequency was calculated by dividing the number of games with fouls by the total number of games in each season. The huge fluctuations may be attributed to the small sample of data with fouls, but we can still observe a decreasing trend in fouling frequency. 
+
+```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "<center>*Figure 1: Percentage of games with late-game fouls by leading teams across the past 21 seasons*", fig.align='center'}
+
+# Percentage of fouls
+fouls_by_season = nba_foul_data %>% 
+  group_by(season) %>% 
+  summarize(total_games = n(),
+            fouls = sum(foul),
+            foul_percent = fouls / total_games)
+
+ggplot(fouls_by_season, aes(x = factor(season), y = foul_percent)) +
+  geom_line(group = 1, color = "darkorange2", linewidth = 0.8) + 
+  geom_point(color = "darkorange2", size = 1.5) +  
+  labs(x="Season",
+       y="Percentage") + 
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+
+On average, the leading teams fouled with about 13.5 seconds remaining on the clock. Figure 2 indicates that foul plays by the leading team became less frequent as the clock wound down from 24 seconds to zero. This reduction in fouling frequency is likely due to increasing game pressure and other considerations on the strategy risks. 
+
+```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "<center>*Figure 2: The frequency of the leading teams’ fouls by seconds left on the clock*", fig.align='center'}
+
+# When did fouls take place? 
+ggplot(nba_foul_data, aes(x = clock_seconds)) +
+  geom_histogram(bins = 35, fill = "darkorange2", color = "white", alpha = 0.8) + 
+  labs(x = "Seconds Left on the Clock",
+       y = "Frequency of Fouls") +
+  theme_minimal(base_size = 12) +
+  scale_x_reverse()
+```
+
+In our dataset, 93.25% of the games ended with the leading teams winning. We also compared the success rates of leading teams based on whether they took a foul late in the game. The results only show a minimal difference in success rates between the two strategies: leading teams not fouling won 93% of the time, slightly higher than the 92% success rate for those that did not foul (Figure 3). This narrow margin implies that, in such tight late-game scenarios, **the decision to foul or not foul may not be the decisive factor to the chances of winning the game**. Note that this comparison did not account for variables such as team strength and other relevant factors. We will look further into the relationship between winning and fouling as we develop our model. 
+
+```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "<center>*Figure 3: Success rates of leading teams with fouling versus no fouling late in the game*", fig.align='center'}
+
+# Display success rates by foul strategy
+
+success_rates = nba_foul_data %>%
+  filter(!is.na(success)) %>%
+  group_by(foul) %>%
+  summarise(SuccessRate = mean(success, na.rm = TRUE))
+
+# for better labeling in the plot
+success_rates$foul = factor(success_rates$foul, labels = c("No Foul", "Foul"))
+
+ggplot(success_rates, aes(x = foul, y = SuccessRate, fill = foul)) +
+  geom_bar(stat = "identity", width = 0.45) +
+  scale_fill_manual(values = c("peachpuff", "darkorange2")) +
+  labs(x = "Strategy",
+       y = "Success Rate",
+       fill = "Strategy") +
+  theme_minimal(base_size = 12) +
+  geom_text(aes(label = round(SuccessRate, 2)), vjust = -0.5)
+```
 
 
 
