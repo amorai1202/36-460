@@ -1,0 +1,490 @@
+---
+title: "NBA Late-Game Strategies: To Foul Or Not To Foul"
+author: 
+  - Amor Ai
+  - Minnie Ren
+  - Yifan Sun
+date: "April 29, 2024"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(brms)
+
+# Load data
+nba_foul_data <- read_csv("project/nba_foul_data.csv")
+```
+
+------------------------------------------------------------------------
+
+# Introduction
+
+Decisions made during the final moments of a game often determine the outcome — a recurring theme present in almost all sports. In the National Basketball Association (NBA), this is especially salient, where many games are decided by the last possession, and a single decision can determine a win or a loss. It is evident that fouling significantly impacts the result of a basketball game, in more ways than one, but is especially important at the end of games. A controversial endgame strategy endorsed by many is to deliberately foul the opposing team when leading by 3 points near the end of the game. The rationale behind this tactic is to force the opponent to earn points from free throws, limiting them to a maximum of 2 and preventing a game-tying three-point shot attempt. This approach not only maintains the lead for the fouling team but also grants them possession with time remaining on the clock.
+
+Our project aims to explore the following questions: 
+
+1. Is fouling when up by 3 points late in an NBA game an effective strategy? 
+2. Can we predict the outcome of games based on this late-game fouling strategy? 
+
+To understand end-game strategies such as this one, enhance team performance, and ultimately improve game outcomes, we were interested in understanding how late-game fouls impact the result of an NBA game. This analysis aims to help coaches, players, and analysts make more informed decisions during late-game situations by providing data-driven insights into the effects of fouling strategies. We found that fouling may not be a good strategy when the opponent has been shooting well at the free-throw line earlier in the game. However, in general, there is no clear answer as to whether or not teams should foul late in the game. Nevertheless, our work lays a foundation for further analysis and research into end-game strategies in basketball.
+
+
+------------------------------------------------------------------------
+
+# Data
+
+NBA play-by-play and box score data were scraped from the [hoopR](https://hoopr.sportsdataverse.org/) package for seasons from 2003 to 2023. The data was filtered to capture late-game scenarios, specifically regular season and postseason games where the game clock was within 24 seconds and the score difference was exactly 3 points in the fourth quarter or any overtimes. A binary variable, `foul`, was created to flag instances of teams fouling in these critical moments. The outcome of each game was determined, and an indicator variable `success` was added to denote whether the leading team ultimately won the game. Game-level statistics such as field goal percentage, three-point percentage, and free throw percentage served as a proxy for team strength. 
+
+The descriptions for all of the key variables of interest are as follows:
+
+<div style="text-align: center;">
+
+| Variable | Description |
+|-------------|-------------|
+| `game_id` |	Unique game ID |
+| `season` | NBA season (year) |
+| `foul` |  Whether or not the leading team fouled (1 = yes)	|
+| `qtr` |	Game period (4 = 4th quarter, 5 = OT1, 6 = OT2, etc) |
+| `leading_team` | Team up by 3 points |
+| `winner` | Team that won the game |
+| `success` | Whether or not the leading team won the game (1 = yes) |
+| `home_team_id` | Unique home team identification number |
+| `away_team_id` | Unique away team identification number |
+| `leading_fgpct` | Field goal percentage of the leading team in the game |
+| `opponent_fgpct` | Field goal percentage of the opponent team in the game |
+| `leading_3pct` | Three-point percentage of the leading team in the game |
+| `opponent_3pct` | Three-point percentage of the opponent team in the game |
+| `leading_FTpct` | Free throw percentage of the leading team in the game |
+| `opponent_FTpct` | Free throw percentage of the opponent team in the game |
+| `clock_seconds` | Seconds left until the end of the period |
+
+</div>
+
+## Exploratory Data Analysis (EDA)
+
+Out of the 5428 games, only 306 games (~5.6% of the time) involved the leading team fouling when up by 3 points. After removing poor data, such as missing values (NA’s), our final dataset used for analysis comprised of 5418 games.
+
+
+Figure 1 displays the frequency of fouls committed by leading teams during late-game situations (with 24 seconds left) across the past 21 seasons. This frequency was calculated by dividing the number of games with fouls by the total number of games in each season. The huge fluctuations may be attributed to the small sample of data with fouls, but we can still observe a decreasing trend in fouling frequency. 
+
+```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "Percentage of games with late-game fouls by leading teams across the past 21 seasons", fig.align='center'}
+
+# Percentage of fouls
+fouls_by_season = nba_foul_data %>% 
+  group_by(season) %>% 
+  summarize(total_games = n(),
+            fouls = sum(foul),
+            foul_percent = fouls / total_games)
+
+ggplot(fouls_by_season, aes(x = factor(season), y = foul_percent)) +
+  geom_line(group = 1, color = "darkorange2", linewidth = 0.8) + 
+  geom_point(color = "darkorange2", size = 1.5) +  
+  labs(x="Season",
+       y="Percentage") + 
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+
+On average, the leading teams fouled with about 13.5 seconds remaining on the clock. As depicted in Figure 2, the occurrence of fouls committed by the leading team decreased steadily as the game clock approached 0. This decline in foul frequency is likely attributed to mounting game pressure and strategic considerations regarding the risks involved.
+
+```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "The frequency of the leading teams’ fouls by seconds left on the clock", fig.align='center'}
+
+# When did fouls take place? 
+ggplot(nba_foul_data, aes(x = clock_seconds)) +
+  geom_histogram(bins = 35, fill = "darkorange2", color = "white", alpha = 0.8) + 
+  labs(x = "Seconds Left on the Clock",
+       y = "Frequency of Fouls") +
+  theme_minimal(base_size = 12) +
+  scale_x_reverse()
+```
+
+In our dataset, teams in the lead with 24 seconds left in the period won 93.25% of the time. We also compared the success rates of leading teams based on whether they fouled late in the game. The results showed a minimal difference in success rates between the two approaches: leading teams that did not foul won 93% of the time, slightly surpassing the 92% success rate for those opting to foul (Figure 3). This narrow margin implies that, in such tight late-game scenarios, **the decision to foul or not foul may not be the decisive factor to the chances of winning the game**. It should be noted that this comparison does not account for variables such as team strength and other relevant factors — and importantly, we are unable to determine if the late-game fouls were deliberate or inadvertent. 
+
+```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "Success rates of leading teams with fouling versus no fouling late in the game", fig.align='center'}
+
+# Display success rates by foul strategy
+
+success_rates = nba_foul_data %>%
+  filter(!is.na(success)) %>%
+  group_by(foul) %>%
+  summarise(SuccessRate = mean(success, na.rm = TRUE))
+
+# for better labeling in the plot
+success_rates$foul = factor(success_rates$foul, labels = c("No Foul", "Foul"))
+
+ggplot(success_rates, aes(x = foul, y = SuccessRate, fill = foul)) +
+  geom_bar(stat = "identity", width = 0.45) +
+  scale_fill_manual(values = c("peachpuff", "darkorange2")) +
+  labs(x = "Strategy",
+       y = "Success Rate",
+       fill = "Strategy") +
+  theme_minimal(base_size = 12) +
+  geom_text(aes(label = round(SuccessRate, 2)), vjust = -0.5)
+```
+
+
+------------------------------------------------------------------------
+
+# Methods
+
+## Model Description
+
+In this project, we developed a Bayesian binomial regression model using the `brms` package that implements the model using the probabilistic programming language Stan (4 chains, 2000 iterations each). This model was designed to predict the success of the leading team, defined as winning the game, while accounting for various predictive factors. These included home-team advantage (i.e. whether the leading team is the home team or away team) and in-game statistical performance such as free-throw, field-goal, and three-point percentage for both the leading and opposing teams. Importantly, interaction terms between fouls and the opponents' shooting percentages were also included to assess the impact of fouling under different conditions.
+
+## Assumptions and Justifications
+
+The Bayesian binomial regression model assumes that the outcome variable, `success`, follows a binomial distribution, which is appropriate given the binary nature of the outcome (win or lose). The model incorporates prior distributions on the parameters; without strong pre-existing hypotheses about the parameters’ values, we decided to rely on the model’s default prior distributions. Typically, these include normal distributions centered at zero for intercepts and regression coefficients, suggesting no initial bias towards positive or negative effects. We opted for a Bayesian approach for another key reason: to obtain 95% credible intervals and full posterior distributions for the intercept and coefficient estimates, rather than just singular values. This allows us to gain a more comprehensive understanding of their complexity and better evaluate the uncertainty of our model results.
+
+## Model Evaluation
+
+We employed leave-one-season-out cross-validation to assess our model's effectiveness and its ability to predict success. This technique provides insights into the model's misclassification rate and its generalizability to new seasons of unseen game data. Additionally, we computed the model's Brier score, which measures prediction accuracy by quantifying the squared difference between the predicted success probability and the actual game outcome.
+
+------------------------------------------------------------------------
+
+# Results
+
+Our model revealed a positive coefficient for the `foul` variable (1.23), however there is substantial variance (CI: [-4.04, 6.57]). In general, higher in-game statistics for the leading team are associated with a higher probability of success. On the contrary, higher opponent FG%, 3pt%, and FT% are associated with a lower probability of success. 
+
+Interestingly, the effectiveness of fouling as a strategic tactic appears to be contingent upon the opponent's performance, particularly concerning their accuracy at the free-throw line during the game (Figure 3). Specifically, **when opponents have been shooting well at the free-throw line throughout the game, fouling may not yield the desired strategic advantage**. However, we should note that there is high uncertainty surrounding this claim, as illustrated by the overlapping 95% credible intervals. 
+
+```{r, echo = FALSE, message = FALSE, warning=FALSE, cache = TRUE, results="hide"}
+# Load model
+foul_model <- invisible(brms::brm(success ~ foul + 
+              # control for home-team advantage
+              leading_team +
+              # control for in-game stats 
+               leading_fgpct + leading_3pct + leading_FTpct +
+              # control for opponent stats interaction with fouls
+              foul*opponent_fgpct + foul*opponent_3pct + foul*opponent_FTpct,
+    family = bernoulli,
+    data = nba_foul_data,
+    seed = 11,
+    sample_prior = T))
+```
+
+```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "Interaction between whether the leading team fouls and the opponent’s free-throw percentage", fig.align='center'}
+
+# Plot conditional effects
+p1 <- plot(conditional_effects(foul_model), plot=FALSE)
+
+oppFT <- p1$`foul:opponent_FTpct` 
+oppFT +labs(x = "Foul", y = "Probability of Success", color = "Opponent's FT%") + guides(fill = FALSE) +  scale_x_continuous(breaks = c(0, 1))
+
+#plot(foul_model, variable = "foul:opponent_fgpct")
+
+```
+
+On the other hand, when opponents have been shooting well from the field, our model fails to offer convincing evidence in favor of fouling as an effective strategy. Notably, interactions between fouls and field goal percentage or three-point percentage indicate that the estimated coefficients center around zero with substantial variability, suggesting a lack of a significant impact on success. Due to high levels of uncertainty in our model results, these findings underscore the nuanced dynamics surrounding fouling strategies in basketball and imply that there may be a clear-cut guideline as to when, or if, fouling in late-game situations is effective. 
+
+Leave-one-season-out cross-validation revealed a misclassification rate of 6.98% and a Brier score of 6.26%. These results indicate that our model performed adequately, particularly considering how the occurrence of late-game fouls is rare in our the dataset. Additionally, we found no notable discrepancies in holdout performance across seasons.
+
+------------------------------------------------------------------------
+
+# Discussion
+
+Our project investigated the influence of late-game fouls on the outcome of NBA games in seasons from 2003 to 2023. Specifically, we examined the final 24 seconds of a game when a team is up by exactly 3 points. In our Bayesian binomial regression model, we accounted for home-team advantage, in-game statistics for both teams, and other relevant interactions between the variables. Our findings suggest that fouling may not be advantageous for the leading team, particularly when the opponent has demonstrated proficiency in free-throw shooting during the game. However, the efficacy of fouling remains uncertain when the opponent has been shooting well from the field or from the three-point line. 
+
+It is important to recognize the limitations of our analyses. First, late-game fouls are rare events in the NBA, which poses a challenge in developing a comprehensive model that can accurately predict their occurrence and impact. Additionally, not all fouls result in shooting opportunities (e.g., loose-ball fouls, non-shooting fouls), complicating the predictive accuracy of our model. Furthermore, our reliance on in-game statistics as a proxy for team strength may introduce biases, as these statistics may not fully capture team dynamics or team strength in general. Therefore, while we have attempted to control for various factors that may be important, other variables such as team ratings or the presence of specific players on the court may influence late-game scenarios and game outcomes. Despite these limitations, this project represents a significant step towards better understanding late-game strategies in the NBA. Nevertheless, further refinement and validation of our model are essential to tackle these constraints and improve our capacity to recommend a definitive late-game strategy for teams.
+
+In the future, we would like to expand the model to include additional contextual factors such as player-specific performance metrics, team dynamics, and other situational variables to enhance predictive accuracy and model inference. We would also like to create interactive visualization tools to allow stakeholders, including coaches, analysts, and fans, to explore and interpret the model's predictions and insights in an intuitive and user-friendly manner. Additionally, we may want to implement adaptive learning algorithms to continually update and refine the model's performance over time as new data becomes available, ensuring its relevance as the league evolves. Although the occurrence of fouling in late-game scenarios is even more rare in the WNBA and NCAA, extending this analysis to other leagues could offer intriguing insights into the potential effectiveness of fouling strategies outside of the NBA. 
+
+------------------------------------------------------------------------
+
+# Code Appendix
+
+## Scraping the data into `nba_foul_data`
+
+```{r, eval = FALSE}
+library(hoopR)
+library(tidyverse)
+
+# Load data ---------------------------------------------------------------
+
+# Play by play data
+nba_pbp <- hoopR::load_nba_pbp(season = 2003:2023)
+# Game outcomes / team level stats
+nba_team <- hoopR::load_nba_team_box(season = 2003:2023) 
+# Team Year Stats
+nba_year <- nba_teamyearbyyearstats()
+# Player stats 
+nba_player <- hoopR::load_nba_player_box()
+
+# Filter late game context ------------------------------------------------
+
+endgame <- nba_pbp |> 
+              filter(# only regular season or post-season games
+                     season_type %in% c(1, 2), 
+                     # 4th quarter/OTs
+                     qtr %in% c(4:8), 
+                     # last 24 seconds 
+                     clock_minutes == 0, clock_seconds <= 24, clock_seconds > 0,
+                     # score is within 3
+                     abs(away_score - home_score) == 3)
+
+# Did the team up by 3 foul? 
+
+endgame_foul <- endgame |> 
+                # create a new column indicating if team fouled
+                mutate(home_team_foul = ifelse((team_id == home_team_id) &
+                                                 # foul indicator
+                                                  type_id == 45 & 
+                                                 # if they were the team up when fouling
+                                                 (home_score > away_score), 1, 0),
+                       away_team_foul = ifelse((team_id == away_team_id) &
+                                                 type_id == 45 & 
+                                                 (away_score > home_score), 1, 0)) |> 
+                # filter out all star game
+                filter(away_team_abbrev != "LEB" & home_team_abbrev != "GIA")
+
+
+# Clean dataset -----------------------------------------------------------
+
+foul_games <- endgame_foul |> 
+  filter(home_team_foul == 1 | away_team_foul == 1) |> 
+  group_by(game_id) |> 
+  # for the 10 games with multiple late-game fouls, keep the one closest to the end
+  slice_min(order_by = clock_seconds) |> 
+  # add indicator
+  mutate(foul = 1)
+
+# 306 games with a late-game foul
+
+no_foul_games <- endgame_foul |> 
+  filter(home_team_foul == 0 & away_team_foul == 0) |> 
+  # just keep 1 possession 
+  distinct(game_id, .keep_all = TRUE) |> 
+  # add indicator
+  mutate(foul = 0)
+
+# 5122 games without
+
+# Append the datasets
+all_games <- bind_rows(foul_games, no_foul_games) |> 
+            # filtering out unnecessary columns
+            select(game_id, season, foul, home_team_foul, away_team_foul,
+                   clock_seconds, qtr, home_score, away_score, 
+                   team_id, home_team_id, away_team_id)
+
+# Join game level details -------------------------------------------------------
+
+# Find out winner of the games
+outcome <- nba_team |> 
+              filter(game_id %in% all_games$game_id,
+                     team_winner == TRUE) |> 
+              mutate(winner = team_home_away) |> 
+              select(game_id, winner)
+  
+all_games <- all_games |> 
+  mutate(leading_team = ifelse((home_score > away_score), "home", "away"))   
+
+# Join outcome
+all_games <- all_games |> 
+              left_join(outcome, by = c("game_id")) 
+
+# Determine if leading team who the game (success)
+all_games <- all_games |> 
+              mutate(success = ifelse((leading_team == winner),1,0))
+
+# How many team held onto the lead?
+#table(all_games$success, all_games$foul)
+
+# Add columns with game level statistics
+game_stats <- nba_team |> 
+                filter(game_id %in% all_games$game_id) |> 
+  group_by(game_id) |> 
+  mutate(home_game_fgpct = ifelse(team_home_away == "home", field_goal_pct, NA),
+         away_game_fgpct = ifelse(team_home_away == "away", field_goal_pct, NA),
+         home_game_3pct = ifelse(team_home_away == "home", three_point_field_goal_pct, NA),
+         away_game_3pct = ifelse(team_home_away == "away", three_point_field_goal_pct, NA),
+         home_game_FTpct = ifelse(team_home_away == "home", free_throw_pct, NA),
+         away_game_FTpct = ifelse(team_home_away == "away", free_throw_pct, NA)) |> 
+  select(game_id, home_game_fgpct, away_game_fgpct, home_game_3pct, away_game_3pct,
+         home_game_FTpct, away_game_FTpct) |> 
+  ungroup()
+
+game_stats <- game_stats |> 
+  group_by(game_id) |> 
+  summarize(across(starts_with("home_game_"), ~ first(na.omit(.))),
+            across(starts_with("away_game_"), ~ first(na.omit(.))))
+
+# Join stats
+all_games <- all_games |> 
+  left_join(game_stats, by = c("game_id")) |> 
+  # Select columns
+  select(game_id, season, foul, qtr, home_team_id,
+         away_team_id, 
+         13:21, clock_seconds)
+  
+# Replace ID with team abbreviation
+teams <- endgame %>%
+  distinct(home_team_id, home_team_abbrev) |> 
+  rename(id = home_team_id, team_name = home_team_abbrev)
+
+for (id in unique(all_games$home_team_id)) {
+  team_name <- teams$team_name[teams$id == id]
+  all_games$home_team_id[all_games$home_team_id == id] <- team_name
+}
+for (id in unique(all_games$away_team_id)) {
+  team_name <- teams$team_name[teams$id == id]
+  all_games$away_team_id[all_games$away_team_id == id] <- team_name
+}
+
+all_games <- all_games |> 
+  mutate(leading_fgpct = ifelse(leading_team == "home", home_game_fgpct, away_game_fgpct),
+         leading_3pct = ifelse(leading_team == "home", home_game_3pct, away_game_3pct),
+         leading_FTpct = ifelse(leading_team == "home", home_game_FTpct, away_game_FTpct),
+         opponent_fgpct = ifelse(leading_team == "home", away_game_fgpct, home_game_fgpct),
+         opponent_3pct = ifelse(leading_team == "home", away_game_3pct, home_game_3pct),
+         opponent_FTpct = ifelse(leading_team == "home", away_game_FTpct, home_game_FTpct)) |> 
+  na.omit()
+```
+
+## EDA
+
+```{r, eval = FALSE}
+
+# `foul` mean = % of fouls in the data set = 0.05637
+# `success` mean = % of games where the leading teams won = 0.9326
+summary(nba_foul_data[c("foul", "success")])
+
+# Percentage of Fouls --------------------------------------------------
+fouls_by_season = nba_foul_data %>% 
+  group_by(season) %>% 
+  summarize(total_games = n(),
+            fouls = sum(foul),
+            foul_percent = fouls / total_games)
+
+ggplot(fouls_by_season, aes(x = factor(season), y = foul_percent)) +
+  geom_line(group = 1, color = "darkorange2", linewidth = 0.8) + 
+  geom_point(color = "darkorange2", size = 1.5) +  
+  labs(title="Percentage of Games with Late-Game Fouls by Season",
+       x="Season",
+       y="Percentage") +
+  theme_minimal(base_size = 12)
+
+
+# Display success rates by foul strategy --------------------------------
+success_rates = nba_foul_data %>%
+  filter(!is.na(success)) %>%
+  group_by(foul) %>%
+  summarise(SuccessRate = mean(success, na.rm = TRUE))
+
+# for better labeling in the plot
+success_rates$foul = factor(success_rates$foul, labels = c("No Foul", "Foul"))
+
+ggplot(success_rates, aes(x = foul, y = SuccessRate, fill = foul)) +
+  geom_bar(stat = "identity", width = 0.45) +
+  scale_fill_manual(values = c("darkorange2", "peachpuff")) +
+  labs(title = "Success Rate by Late-Game Foul Strategy",
+       x = "Strategy",
+       y = "Success Rate",
+       fill = "Strategy") +
+  theme_minimal(base_size = 12) +
+  geom_text(aes(label = round(SuccessRate, 2)), vjust = -0.5)
+
+# Display distribution of when the fouls took place ---------------------
+ggplot(nba_foul_data, aes(x = clock_seconds)) +
+  geom_histogram(bins = 35, fill = "darkorange2", color = "white", alpha = 0.8) + 
+  labs(title = "When Did Fouls Take Place",
+       x = "Seconds on Clock",
+       y = "Frequency of Fouls") +
+  theme_minimal(base_size = 12) +
+  scale_x_reverse()
+```
+
+## Build the model
+
+```{r, eval = FALSE}
+foul_model <- brms::brm(success ~ foul + 
+              # control for home-team advantage
+              leading_team +
+              # control for in-game stats 
+               leading_fgpct + leading_3pct + leading_FTpct +
+              # control for opponent stats interaction with fouls
+              foul*opponent_fgpct + foul*opponent_3pct + foul*opponent_FTpct,
+    family = bernoulli,
+    data = nba_foul_data,
+    seed = 11,
+    sample_prior = T)
+```
+
+## Cross-Validation
+
+```{r, eval = FALSE}
+cv_rmse <- 
+  map_dfr(unique(nba_foul_data$season),  
+          function(holdout_season) {
+            
+            # Separate test and training data:
+            test_data <- nba_foul_data |> 
+              filter(season == holdout_season)
+            train_data <- nba_foul_data |> 
+              filter(season != holdout_season)
+            
+            # Train model:
+            train_model <- brm(success ~ 
+      foul + leading_team +
+      leading_fgpct + leading_3pct + leading_FTpct + 
+      foul*opponent_fgpct + foul*opponent_3pct + foul*opponent_FTpct,
+                                    family = bernoulli,
+                                    data = train_data,
+                                    seed = 11,
+                                    sample_prior = T)
+            
+            # Return tibble fo holdout results
+            tibble(test_pred_probs = predict(train_model, newdata = test_data,
+                                    type = "response")[,1],
+                   test_actual = test_data$success,
+                   test_season = holdout_season)
+          })
+
+# Confusion matrix
+pred_success <- ifelse(cv_rmse$test_pred_probs < 0.5, 0, 1)
+table("Predictions" = pred_success, "Observed" = nba_foul_data$success)
+
+# Plot
+
+nba_foul_data |> 
+  mutate(pred_prob = cv_rmse$test_pred_probs) |> 
+  ggplot(aes(x = pred_prob, y = nba_foul_data$success)) +
+  #geom_point(aes(size = n_attempts)) +
+  geom_smooth(method = "loess", se = FALSE) +
+  geom_abline(slope = 1, intercept = 0, 
+              color = "black", linetype = "dashed") +
+  coord_equal() + 
+  scale_x_continuous(limits = c(0,1)) + 
+  scale_y_continuous(limits = c(0,1)) + 
+  labs(x = "Estimated success probability",
+       y = "Observed success probability",
+       title = "Calibration Plot") + 
+  theme_bw() 
+
+# Misclassification rate
+
+cv_rmse |> 
+  mutate(test_pred = ifelse(test_pred_probs < 0.5, 0, 1)) |> 
+  summarize(mcr = mean(test_pred != test_actual))
+
+# Brier score
+
+cv_rmse |> 
+  summarize(brier_score = mean((test_actual - test_pred_probs)^2))
+
+# Holdout performance by season
+
+cv_rmse |> 
+  mutate(test_pred = ifelse(test_pred_probs < .5, 0, 1)) |> 
+  group_by(test_season) |> 
+  summarize(mcr = mean(test_pred != test_actual)) |> 
+  ggplot(aes(x = test_season, y = mcr)) +
+  geom_bar(stat = "identity", width = .1) + geom_point(size = 5) +
+  labs(x = "Test Season",
+       y = "Misclassification Rate",
+       title = "Holdout performance by season") + 
+  theme_bw() +
+  scale_x_continuous(breaks = unique(cv_rmse$test_season))
+  
+```
+
