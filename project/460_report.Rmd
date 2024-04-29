@@ -39,7 +39,7 @@ Our project aims to explore the following questions:
 1. Is fouling when up by 3 points late in an NBA game an effective strategy? 
 2. Can we predict the outcome of games based on this late-game fouling strategy? 
 
-To understand end-game strategies such as this one, enhance team performance, and ultimately improve game outcomes, we were interested in understanding how late-game fouls impact the result of an NBA game. This analysis aims to help coaches, players, and analysts make more informed decisions during late-game situations by providing data-driven insights into the effects of fouling strategies. We found that fouling may not be a good strategy when the opponent has been shooting well at the free-throw line or from the field earlier in the game. However, in general, there is no clear answer as to whether or not teams should foul late in the game. Nevertheless, our work lays a foundation for further analysis and research into end-game strategies in basketball.
+To understand end-game strategies such as this one, enhance team performance, and ultimately improve game outcomes, we were interested in understanding how late-game fouls impact the result of an NBA game. This analysis aims to help coaches, players, and analysts make more informed decisions during late-game situations by providing data-driven insights into the effects of fouling strategies. We found that fouling may not be a good strategy when the opponent has been shooting well at the free-throw line earlier in the game. However, in general, there is no clear answer as to whether or not teams should foul late in the game. Nevertheless, our work lays a foundation for further analysis and research into end-game strategies in basketball.
 
 
 ------------------------------------------------------------------------
@@ -75,7 +75,7 @@ The descriptions for the all of the key variables of interest are as follows:
 
 ## Exploratory Data Analysis (EDA)
 
-Out of the 5428 games, only 306 games (~5.6% of the time) involved the leading team fouling when up by 3 points. After removing poor data, such as missing values (NA’s), our final dataset used for analysis comprised 5418 games.
+Out of the 5428 games, only 306 games (~5.6% of the time) involved the leading team fouling when up by 3 points. After removing poor data, such as missing values (NA’s), our final dataset used for analysis comprised of 5418 games.
 
 
 Figure 1 displays the frequency of fouls committed by leading teams during late-game situations (with 24 seconds left) across the past 21 seasons. This frequency was calculated by dividing the number of games with fouls by the total number of games in each season. The huge fluctuations may be attributed to the small sample of data with fouls, but we can still observe a decreasing trend in fouling frequency. 
@@ -98,7 +98,7 @@ ggplot(fouls_by_season, aes(x = factor(season), y = foul_percent)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 ```
 
-On average, the leading teams fouled with about 13.5 seconds remaining on the clock. Figure 2 indicates that foul plays by the leading team became less frequent as the clock wound down from 24 seconds to zero. This reduction in fouling frequency is likely due to increasing game pressure and other considerations on the strategy risks. 
+On average, the leading teams fouled with about 13.5 seconds remaining on the clock. As depicted in Figure 2, the occurrence of fouls committed by the leading team decreased steadily as the game clock approached 0. This decline in foul frequency is likely attributed to mounting game pressure and strategic considerations regarding the risks involved.
 
 ```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "<center>*Figure 2: The frequency of the leading teams’ fouls by seconds left on the clock*", fig.align='center'}
 
@@ -111,7 +111,7 @@ ggplot(nba_foul_data, aes(x = clock_seconds)) +
   scale_x_reverse()
 ```
 
-In our dataset, 93.25% of the games ended with the leading teams winning. We also compared the success rates of leading teams based on whether they took a foul late in the game. The results only show a minimal difference in success rates between the two strategies: leading teams not fouling won 93% of the time, slightly higher than the 92% success rate for those that did not foul (Figure 3). This narrow margin implies that, in such tight late-game scenarios, **the decision to foul or not foul may not be the decisive factor to the chances of winning the game**. Note that this comparison did not account for variables such as team strength and other relevant factors. We will look further into the relationship between winning and fouling as we develop our model. 
+In our dataset, teams that were leading with 24 seconds left in the period won 93.25% the time. We also compared the success rates of leading teams based on whether they fouled late in the game. The results showed a minimal difference in success rates between the two approaches: leading teams that did not foul won 93% of the time, slightly surpassing the 92% success rate for those opting to foul (Figure 3). This narrow margin implies that, in such tight late-game scenarios, **the decision to foul or not foul may not be the decisive factor to the chances of winning the game**. It should be noted that this comparison does not account for variables such as team strength and other relevant factors — and importantly, we are unable to determine if the late-game fouls were deliberate or inadvertent. 
 
 ```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "<center>*Figure 3: Success rates of leading teams with fouling versus no fouling late in the game*", fig.align='center'}
 
@@ -136,20 +136,70 @@ ggplot(success_rates, aes(x = foul, y = SuccessRate, fill = foul)) +
 ```
 
 
-
 ------------------------------------------------------------------------
 
 # Methods
 
+## Model Description
 
+In this project, we developed a Bayesian binomial regression model using the `brms` package that implements the model using the probabilistic programming language Stan (4 chains, 2000 iterations each). This model was designed to predict the success of the leading team, defined as winning the game, while accounting for various predictive factors. These included home-team advantage (i.e. whether the leading team is the home team or away team) and in-game statistical performance such as free-throw, field-goal, and three-point percentage for both the leading and opposing teams. Importantly, interaction terms between fouls and the opponents' shooting percentages were also included to assess the impact of fouling under different conditions.
+
+## Assumptions and Justifications
+
+The Bayesian binomial regression model assumes that the outcome variable, `success`, follows a binomial distribution, which is appropriate given the binary nature of the outcome (win or lose). The model incorporates prior distributions on the parameters; without strong pre-existing hypotheses about the parameters’ values, we decided to rely on the model’s default prior distributions. Typically, these include normal distributions centered at zero for intercepts and regression coefficients, suggesting no initial bias towards positive or negative effects. We opted for a Bayesian approach for another key reason: to obtain 95% credible intervals and full posterior distributions for the intercept and coefficient estimates, rather than just singular values. This allows us to gain a more comprehensive understanding of their complexity and better evaluate the uncertainty of our model results.
+
+## Model Evaluation
+
+We employed leave-one-season-out cross-validation to assess our model's effectiveness and its ability to predict success. This technique provides insights into the model's misclassification rate and its generalizability to new seasons of unseen game data. Additionally, we computed the model's Brier score, which measures prediction accuracy by quantifying the squared difference between the predicted success probability and the actual game outcome.
 
 ------------------------------------------------------------------------
 
 # Results
 
+Our model revealed a positive coefficient for the `foul` variable (1.23), however there is substantial variance (CI: [-4.04, 6.57]). In general, higher in-game statistics for the leading team is associated with a higher probability of success. On the contrary, higher opponent FG%, 3pt%, and FT% is associated with a lower probability of success. 
+
+Interestingly, the effectiveness of fouling as a strategic tactic appears to be contingent upon the opponent's performance, particularly concerning their accuracy at the free-throw line during the game (Figure 3). Specifically, **when opponents have been shooting well at the free-throw line throughout the game, fouling may not yield the desired strategic advantage**. However, we should note that there is high uncertainty surrounding this claim, as illustrated by the overlapping 95% credible intervals. 
+
+```{r, echo = FALSE, message = FALSE, warning=FALSE, cache = TRUE, results="hide"}
+# Load model
+foul_model <- invisible(brms::brm(success ~ foul + 
+              # control for home-team advantage
+              leading_team +
+              # control for in-game stats 
+               leading_fgpct + leading_3pct + leading_FTpct +
+              # control for opponent stats interaction with fouls
+              foul*opponent_fgpct + foul*opponent_3pct + foul*opponent_FTpct,
+    family = bernoulli,
+    data = nba_foul_data,
+    seed = 11,
+    sample_prior = T))
+```
+
+```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "<center>*Figure 3: Interaction between whether the leading team fouls and the opponent’s free-throw percentage*", fig.align='center'}
+
+# Plot conditional effects
+p1 <- plot(conditional_effects(foul_model), plot=FALSE)
+
+oppFT <- p1$`foul:opponent_FTpct` 
+oppFT +labs(x = "Foul", y = "Probability of Success", color = "Opponent's FT%") + guides(fill = FALSE) +  scale_x_continuous(breaks = c(0, 1))
+
+#plot(foul_model, variable = "foul:opponent_fgpct")
+
+```
+
+On the other hand, when opponents have been shooting well from the field, our model fails to offer convincing evidence in favor of fouling as an effective strategy. Notably, interactions between fouls and field goal percentage or three-point percentage indicate that the estimated coefficients center around zero with substantial variability, suggesting lack of a significant impact on success. Due to high levels of uncertainty in our model results, these findings underscore the nuanced dynamics surrounding fouling strategies in basketball and imply that there may be a clear-cut guideline as to when, or if, fouling in late-game situations is effective. 
+
+Leave-one-season-out cross-validation revealed a misclassification rate of 6.98% and a Brier score of 6.26%. These results indicate that our model performed adequately, particularly considering how the occurrence of late-game fouls is rare in our the dataset. Additionally, we found no notable discrepancies in holdout performance across seasons.
+
 ------------------------------------------------------------------------
 
 # Discussion
+
+Our project investigated the influence of late-game fouls on the outcome of NBA games in seasons from 2003 to 2023. Specifically, we examined the final 24 seconds of a game when a team is up by exactly 3 points. In our Bayesian binomial regression model, we accounted for home-team advantage, in-game statistics for both teams, and other relevant interactions between the variables. Our findings suggest that fouling may not be advantageous for the leading team, particularly when the opponent has demonstrated proficiency in free-throw shooting during the game. However, the efficacy of fouling remains uncertain when the opponent has been shooting well from the field or from the three-point line. 
+
+It is important to recognize the limitations of our analyses. First, late-game fouls are rare events in the NBA, which poses a challenge in developing a comprehensive model that can accurately predict their occurrence and impact. Additionally, not all fouls result in shooting opportunities (e.g., loose-ball fouls, non-shooting fouls), complicating the predictive accuracy of our model. Furthermore, our reliance on in-game statistics as a proxy for team strength may introduce biases, as these statistics may not fully capture team dynamics or team strength in general. Therefore, while we have attempted to control for various factors that may be important, other variables such as team ratings or the presence of specific players on the court may influence late-game scenarios and game outcomes. Despite these limitations, this project represents a significant step towards better understanding late-game strategies in the NBA. Nevertheless, further refinement and validation of our model are essential to tackle these constraints and improve our capacity to recommend a definitive late-game strategy for teams.
+
+In the future, we would like to expand the model to include additional contextual factors such as player-specific performance metrics, team dynamics, and other situational variables to enhance predictive accuracy and model inference. We would also like to create interactive visualization tools to allow stakeholders, including coaches, analysts, and fans, to explore and interpret the model's predictions and insights in an intuitive and user-friendly manner. Additionally, we may want to implement adaptive learning algorithms to continually update and refine the model's performance over time as new data becomes available, ensuring its relevance as the league evolves. Although the occurrence of fouling in late-game scenarios is even more rare in the WNBA and NCAA, extending this analysis to other leagues could offer intriguing insights into the potential effectiveness of fouling strategies outside of the NBA. 
 
 
 
