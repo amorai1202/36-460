@@ -46,9 +46,9 @@ To understand end-game strategies such as this one, enhance team performance, an
 
 # Data
 
-NBA play-by-play and box score data was scraped from the [hoopR](https://hoopr.sportsdataverse.org/) package for seasons from 2003 to 2023. The data was filtered to capture late-game scenarios, specifically regular season and postseason games where the game clock was within 24 seconds and the score difference was exactly 3 points in the fourth quarter or any overtimes. A binary variable, `foul`, was created to flag instances of teams fouling in these critical moments. The outcome of each game was determined, and an indicator variable `success` was added to denote whether the leading team ultimately won the game. Game-level statistics such as field goal percentage, three-point percentage, and free throw percentage served as a proxy for team strength. 
+NBA play-by-play and box score data were scraped from the [hoopR](https://hoopr.sportsdataverse.org/) package for seasons from 2003 to 2023. The data was filtered to capture late-game scenarios, specifically regular season and postseason games where the game clock was within 24 seconds and the score difference was exactly 3 points in the fourth quarter or any overtimes. A binary variable, `foul`, was created to flag instances of teams fouling in these critical moments. The outcome of each game was determined, and an indicator variable `success` was added to denote whether the leading team ultimately won the game. Game-level statistics such as field goal percentage, three-point percentage, and free throw percentage served as a proxy for team strength. 
 
-The descriptions for the all of the key variables of interest are as follows:
+The descriptions for all of the key variables of interest are as follows:
 
 <div style="text-align: center;">
 
@@ -111,7 +111,7 @@ ggplot(nba_foul_data, aes(x = clock_seconds)) +
   scale_x_reverse()
 ```
 
-In our dataset, teams that were leading with 24 seconds left in the period won 93.25% the time. We also compared the success rates of leading teams based on whether they fouled late in the game. The results showed a minimal difference in success rates between the two approaches: leading teams that did not foul won 93% of the time, slightly surpassing the 92% success rate for those opting to foul (Figure 3). This narrow margin implies that, in such tight late-game scenarios, **the decision to foul or not foul may not be the decisive factor to the chances of winning the game**. It should be noted that this comparison does not account for variables such as team strength and other relevant factors — and importantly, we are unable to determine if the late-game fouls were deliberate or inadvertent. 
+In our dataset, teams in the lead with 24 seconds left in the period won 93.25% of the time. We also compared the success rates of leading teams based on whether they fouled late in the game. The results showed a minimal difference in success rates between the two approaches: leading teams that did not foul won 93% of the time, slightly surpassing the 92% success rate for those opting to foul (Figure 3). This narrow margin implies that, in such tight late-game scenarios, **the decision to foul or not foul may not be the decisive factor to the chances of winning the game**. It should be noted that this comparison does not account for variables such as team strength and other relevant factors — and importantly, we are unable to determine if the late-game fouls were deliberate or inadvertent. 
 
 ```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "<center>*Figure 3: Success rates of leading teams with fouling versus no fouling late in the game*", fig.align='center'}
 
@@ -156,7 +156,7 @@ We employed leave-one-season-out cross-validation to assess our model's effectiv
 
 # Results
 
-Our model revealed a positive coefficient for the `foul` variable (1.23), however there is substantial variance (CI: [-4.04, 6.57]). In general, higher in-game statistics for the leading team is associated with a higher probability of success. On the contrary, higher opponent FG%, 3pt%, and FT% is associated with a lower probability of success. 
+Our model revealed a positive coefficient for the `foul` variable (1.23), however there is substantial variance (CI: [-4.04, 6.57]). In general, higher in-game statistics for the leading team are associated with a higher probability of success. On the contrary, higher opponent FG%, 3pt%, and FT% are associated with a lower probability of success. 
 
 Interestingly, the effectiveness of fouling as a strategic tactic appears to be contingent upon the opponent's performance, particularly concerning their accuracy at the free-throw line during the game (Figure 3). Specifically, **when opponents have been shooting well at the free-throw line throughout the game, fouling may not yield the desired strategic advantage**. However, we should note that there is high uncertainty surrounding this claim, as illustrated by the overlapping 95% credible intervals. 
 
@@ -175,7 +175,7 @@ foul_model <- invisible(brms::brm(success ~ foul +
     sample_prior = T))
 ```
 
-```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "<center>*Figure 3: Interaction between whether the leading team fouls and the opponent’s free-throw percentage*", fig.align='center'}
+```{r, echo = FALSE, message = FALSE, warning=FALSE, fig.cap= "<center>*Figure 4: Interaction between whether the leading team fouls and the opponent’s free-throw percentage*", fig.align='center'}
 
 # Plot conditional effects
 p1 <- plot(conditional_effects(foul_model), plot=FALSE)
@@ -187,7 +187,7 @@ oppFT +labs(x = "Foul", y = "Probability of Success", color = "Opponent's FT%") 
 
 ```
 
-On the other hand, when opponents have been shooting well from the field, our model fails to offer convincing evidence in favor of fouling as an effective strategy. Notably, interactions between fouls and field goal percentage or three-point percentage indicate that the estimated coefficients center around zero with substantial variability, suggesting lack of a significant impact on success. Due to high levels of uncertainty in our model results, these findings underscore the nuanced dynamics surrounding fouling strategies in basketball and imply that there may be a clear-cut guideline as to when, or if, fouling in late-game situations is effective. 
+On the other hand, when opponents have been shooting well from the field, our model fails to offer convincing evidence in favor of fouling as an effective strategy. Notably, interactions between fouls and field goal percentage or three-point percentage indicate that the estimated coefficients center around zero with substantial variability, suggesting a lack of a significant impact on success. Due to high levels of uncertainty in our model results, these findings underscore the nuanced dynamics surrounding fouling strategies in basketball and imply that there may be a clear-cut guideline as to when, or if, fouling in late-game situations is effective. 
 
 Leave-one-season-out cross-validation revealed a misclassification rate of 6.98% and a Brier score of 6.26%. These results indicate that our model performed adequately, particularly considering how the occurrence of late-game fouls is rare in our the dataset. Additionally, we found no notable discrepancies in holdout performance across seasons.
 
