@@ -135,7 +135,7 @@ for (id in unique(all_games$away_team_id)) {
   all_games$away_team_id[all_games$away_team_id == id] <- team_name
 }
 
-nba_foul_data <- all_games |> 
+all_games <- all_games |> 
   mutate(leading_fgpct = ifelse(leading_team == "home", home_game_fgpct, away_game_fgpct),
          leading_3pct = ifelse(leading_team == "home", home_game_3pct, away_game_3pct),
          leading_FTpct = ifelse(leading_team == "home", home_game_FTpct, away_game_FTpct),
